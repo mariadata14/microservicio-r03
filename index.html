@@ -101,8 +101,7 @@
 
                 <div>
                     <h4 class="text-[11px] font-black text-slate-400 uppercase mb-4 tracking-tighter">Recomendaciones (clima TR + ENA)</h4>
-                    <div id="list-recs" class="space-y-4">
-                        </div>
+                    <div id="list-recs" class="space-y-4"></div>
                 </div>
 
                 <div class="mt-10 pt-4 border-t border-slate-100 flex justify-between items-center">
@@ -116,7 +115,6 @@
     <script>
         let dataTree = {};
 
-        // Carga inicial de ubicaciones
         window.onload = async () => {
             try {
                 const r = await fetch('http://127.0.0.1:8000/ubicaciones');
@@ -165,34 +163,29 @@
                 });
                 const data = await response.json();
 
-                // Mostrar Dashboard
                 document.getElementById('dashboard').classList.remove('hidden');
                 
-                // Mapeo de Texto
                 document.getElementById('res-header-title').innerText = `${data.distrito} · ${data.provincia} · ${data.region}`;
                 document.getElementById('res-count').innerText = data.registros_ena;
                 document.getElementById('txt-dist').innerText = data.distrito;
                 document.getElementById('txt-prov').innerText = data.provincia;
                 document.getElementById('txt-reg').innerText = data.region;
-                document.getElementById('res-top-dist').innerText = data.top_distrito;
-                document.getElementById('res-main-rec').innerText = data.recomendacion_principal;
                 
-                // Métricas
+                // CAMBIO APLICADO: Humedad y Cultivos (join)
+                document.getElementById('res-hum').innerText = data.humedad_actual + "%";
+                document.getElementById('res-top-dist').innerText = data.top_cultivos.join(', ');
+                document.getElementById('top-d').innerText = data.top_cultivos.join(', ');
+                document.getElementById('top-r').innerText = data.top_cultivos.join(', ');
+                
+                document.getElementById('res-main-rec').innerText = data.recomendacion_principal;
                 document.getElementById('res-temp').innerText = data.temp_actual + "°C";
-                document.getElementById('res-hum').innerText = data.humedad + "%";
                 document.getElementById('res-15d').innerText = data.rango_15d;
 
-                // Histórico ENA (Mono)
                 document.getElementById('h-med').innerText = data.ena_stats.media;
                 document.getElementById('h-min').innerText = data.ena_stats.min;
                 document.getElementById('h-max').innerText = data.ena_stats.max;
                 document.getElementById('h-pre').innerText = data.ena_stats.precip;
 
-                // Tops
-                document.getElementById('top-d').innerText = data.top_distrito;
-                document.getElementById('top-r').innerText = data.top_region;
-
-                // Lógica de Riesgo (Color dinámico)
                 const boxRiesgo = document.getElementById('box-riesgo');
                 if(data.temp_actual < 10) {
                     boxRiesgo.className = "bg-red-50 border-l-8 border-red-500 p-4 mb-8";
@@ -206,7 +199,6 @@
                     document.getElementById('msg-riesgo').innerText = "✅ Condiciones climáticas normales para la región y temporada.";
                 }
 
-                // Recomendaciones
                 const container = document.getElementById('list-recs');
                 container.innerHTML = data.detalles_cultivos.map(c => `
                     <div class="border-b border-slate-100 pb-3">

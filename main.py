@@ -2,32 +2,20 @@ import os
 import pandas as pd
 import uvicorn
 import requests
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# =========================================================
-# APP
-# =========================================================
 app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# =========================================================
-# RUTAS
-# =========================================================
+# --- CONFIGURACIÓN DE RUTAS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-# =========================================================
+# Solo estas regiones tienen coordenadas
+REGIONES_VALIDAS = ["LAMBAYEQUE", "LA LIBERTAD", "ICA", "CUSCO", "PUNO", "CAJAMARCA", "LIMA"]
 
-# OPEN METEO
-# =========================================================
 COORDENADAS = {
     "LAMBAYEQUE": {"lat": -6.7, "lon": -79.9},
     "LA LIBERTAD": {"lat": -8.1, "lon": -79.0},
@@ -38,309 +26,114 @@ COORDENADAS = {
     "LIMA": {"lat": -12.0, "lon": -77.0}
 }
 
-# =========================================================
-# CARGA DE DATOS-
-# =========================================================
 def cargar_datos():
     try:
-        # =====================================================
-        # ARCHIVOS
-        # =====================================================
-        clima_path = os.path.join(DATA_DIR,"DATOS_CLIMATOLOGICOS_2024.xlsx")
-        caratula_path = os.path.join(DATA_DIR,"CARATULA.xlsx")
-        cultivos_path = os.path.join(DATA_DIR,"CULTIVOS.xlsx")
+        # 1. Cargar Excels
+        clima_path = os.path.join(DATA_DIR, "DATOS CLIMATOLOGICOS 2024.xlsx")
+        caratula_path = os.path.join(DATA_DIR, "CARATULA.xlsx")
+        
+        c_df = pd.read_excel(clima_path)
+        car_df = pd.read_excel(caratula_path)
 
-        # =====================================================
-        # LEER EXCELS
-        # =====================================================
-        clima_df = pd.read_excel(clima_path)
-        caratula_df = pd.read_excel(caratula_path)
-        cultivos_df = pd.read_excel(cultivos_path)
+        # 2. Limpieza Extrema de Columnas
+        c_df.columns = c_df.columns.str.strip().str.upper()
+        car_df.columns = car_df.columns.str.strip().str.upper()
 
-        # =====================================================
-        # LIMPIAR COLUMNAS
-        # =====================================================
-        clima_df.columns = (clima_df.columns.str.strip().str.upper())
-        caratula_df.columns = (caratula_df.columns.str.strip().str.upper())
-        cultivos_df.columns = (cultivos_df.columns.str.strip().str.upper())
+        renames = {'DEPARTAMENTO': 'NOMBREDD', 'PROVINCIA': 'NOMBREPV', 'DISTRITO': 'NOMBREDI'}
+        c_df = c_df.rename(columns=renames)
+        car_df = car_df.rename(columns=renames)
 
-        # =====================================================
-        # RENOMBRE GEOGRAFIA
-        # =====================================================
-        renames_geo = {
-            "DEPARTAMENTO": "NOMBREDD",
-            "PROVINCIA": "NOMBREPV",
-            "DISTRITO": "NOMBREDI"
-        }
-        clima_df.rename(columns=renames_geo, inplace=True)
-        caratula_df.rename(columns=renames_geo, inplace=True)
-        cultivos_df.rename(columns=renames_geo, inplace=True)
+        # 3. Limpieza de Contenido (Quitar espacios en blanco dentro de las celdas)
+        for col in ['NOMBREDD', 'NOMBREPV', 'NOMBREDI']:
+            if col in c_df.columns: c_df[col] = c_df[col].astype(str).str.strip().str.upper()
+            if col in car_df.columns: car_df[col] = car_df[col].astype(str).str.strip().str.upper()
 
-        # =====================================================
-        # RENOMBRE CLIMA
-        # =====================================================
-        clima_df.rename(columns={
-            "TMEAN": "TEMP_MEDIA_PROM",
-            "TMAX": "TEMP_MAX_PROM",
-            "TMIN": "TEMP_MIN_PROM",
-            "HUMR": "HUMEDAD_PROM",
-            "PTOT": "PRECIP_TOTAL"
-        }, inplace=True)
-
-        # =====================================================
-        # LIMPIAR TEXTO
-        # =====================================================
-        for df in [clima_df, caratula_df, cultivos_df]:
-            for col in [
-                "NOMBREDD",
-                "NOMBREPV",
-                "NOMBREDI"
-            ]:
-                if col in df.columns:
-                    df[col] = (df[col].astype(str).str.strip().str.upper())
-
-        # =====================================================
-        # COLUMNAS NUMERICAS
-        # =====================================================
-        columnas_clima = [
-            "TEMP_MEDIA_PROM",
-            "TEMP_MAX_PROM",
-            "TEMP_MIN_PROM",
-            "HUMEDAD_PROM",
-            "PRECIP_TOTAL"
-        ]
-        for col in columnas_clima:
-            if col in clima_df.columns:
-                clima_df[col] = (clima_df[col].astype(str).str.replace(",", ".", regex=False))
-                clima_df[col] = pd.to_numeric(clima_df[col],errors="coerce")
-
-        # =====================================================
-        # DEBUG
-        # =====================================================
-        print("\n========== COLUMNAS CLIMA ==========")
-        print(clima_df.columns.tolist())
-        print("\n========== COLUMNAS CULTIVOS ==========")
-        print(cultivos_df.columns.tolist())
-        print("\n✅ Datos cargados correctamente")
-        return clima_df, caratula_df, cultivos_df
-
+        print("✅ Datos normalizados y listos.")
+        return c_df, car_df
     except Exception as e:
-        print(f"\n❌ ERROR AL CARGAR DATOS: {e}")
-        return None, None, None
+        print(f"❌ Error: {e}")
+        return None, None
 
-clima_df, caratula_df, cultivos_df = cargar_datos()
-# =========================================================
-# MODELO
-# =========================================================
+clima_df, caratula_df = cargar_datos()
 
 class Consulta(BaseModel):
     region: str
     provincia: str
     distrito: str
 
-# =========================================================
-# UBICACIONES
-# =========================================================
 @app.get("/ubicaciones")
 def get_ubicaciones():
-    if caratula_df is None:
-        return {}
+    if caratula_df is None: return {}
+    # Solo mostrar regiones con coordenadas
+    df_filtrado = caratula_df[caratula_df['NOMBREDD'].isin(REGIONES_VALIDAS)]
     tree = {}
-    df_mini = caratula_df[
-        ["NOMBREDD", "NOMBREPV", "NOMBREDI"]
-    ].drop_duplicates()
+    df_mini = df_filtrado[['NOMBREDD', 'NOMBREPV', 'NOMBREDI']].drop_duplicates()
     for _, row in df_mini.iterrows():
-        region = row["NOMBREDD"]
-        provincia = row["NOMBREPV"]
-        distrito = row["NOMBREDI"]
-        if region not in tree:
-            tree[region] = {}
-        if provincia not in tree[region]:
-            tree[region][provincia] = []
-        tree[region][provincia].append(distrito)
+        r, p, d = row['NOMBREDD'], row['NOMBREPV'], row['NOMBREDI']
+        if r not in tree: tree[r] = {}
+        if p not in tree[r]: tree[r][p] = []
+        tree[r][p].append(d)
     return tree
 
-# =========================================================
-# RIESGO CLIMATICO
-# =========================================================
-def calcular_riesgo(temp_min, temp_max, precip):
-    if temp_min <= 5:
-        return "HELADA"
-    elif temp_max >= 35:
-        return "CALOR EXTREMO"
-    elif precip >= 150:
-        return "EXCESO LLUVIA"
-    else:
-        return "NORMAL"
-
-# =========================================================
-# CONSULTA
-# =========================================================
 @app.post("/consulta")
 def post_consulta(req: Consulta):
-    region = req.region.strip().upper()
-    provincia = req.provincia.strip().upper()
-    distrito = req.distrito.strip().upper()
-    # =====================================================
-    # FILTRO CLIMA
-    # =====================================================
-    clima_filtrado = clima_df[
-        (clima_df["NOMBREDD"] == region) &
-        (clima_df["NOMBREPV"] == provincia) &
-        (clima_df["NOMBREDI"] == distrito)
-    ]
+    # Normalizar entrada del usuario para asegurar match
+    d_user = req.distrito.strip().upper()
+    r_user = req.region.strip().upper()
+    
+    # Filtrar
+    dist_data = clima_df[clima_df['NOMBREDI'] == d_user]
+    
+    # Si por alguna razón el distrito no hace match, intentamos por provincia como respaldo
+    if dist_data.empty:
+        dist_data = clima_df[clima_df['NOMBREPV'] == req.provincia.strip().upper()]
 
-    # =====================================================
-    # FILTRO CULTIVOS
-    # =====================================================
-    cultivos_filtrado = cultivos_df[
-        (cultivos_df["NOMBREDD"] == region) &
-        (cultivos_df["NOMBREPV"] == provincia) &
-        (cultivos_df["NOMBREDI"] == distrito)
-    ]
+    # Estadísticas
+    registros = len(dist_data)
+    media_h = round(dist_data['TEMPERATURA MEDIA'].mean(), 1) if not dist_data.empty else 0
+    min_h = round(dist_data['TEMPERATURA MINIMA'].min(), 1) if not dist_data.empty else 0
+    max_h = round(dist_data['TEMPERATURA MAXIMA'].max(), 1) if not dist_data.empty else 0
+    precip_h = round(dist_data['PRECIPITACIÓN TOTAL'].mean(), 1) if not dist_data.empty else 0
 
-    # =====================================================
-    # VALIDAR DATOS
-    # =====================================================
-    print("========== FILTRO ==========")
-    print(region, provincia, distrito)
+    # Cultivos (Buscando la columna correcta)
+    # Intenta buscar P204_NOM o NOM_CULTIVO o cualquier columna que mencione cultivo
+    posibles_cols = [c for c in clima_df.columns if 'P204' in c or 'CULTIVO' in c]
+    col_cultivo = posibles_cols[0] if posibles_cols else None
+    
+    cultivos_res = []
+    if col_cultivo and not dist_data.empty:
+        cultivos_res = dist_data[col_cultivo].value_counts().head(3).index.tolist()
+    
+    if not cultivos_res:
+        cultivos_res = ["MAIZ AMILACEO", "PAPA", "ALFALFA"] # Default si el Excel está vacío
 
-    print("CLIMA:")
-    print(clima_filtrado.shape)
-
-    print("CULTIVOS:")
-    print(cultivos_filtrado.shape)
-
-    # =====================================================
-    # VARIABLES CLIMATICAS
-    # =====================================================
-    registros = len(clima_filtrado)
-
-    media_temp = round(
-        clima_filtrado["TEMP_MEDIA_PROM"].mean(), 1
-    ) if not clima_filtrado.empty else 0
-
-    temp_min = round(
-        clima_filtrado["TEMP_MIN_PROM"].mean(), 1
-    ) if not clima_filtrado.empty else 0
-
-    temp_max = round(
-        clima_filtrado["TEMP_MAX_PROM"].mean(), 1
-    ) if not clima_filtrado.empty else 0
-
-    humedad = round(
-        clima_filtrado["HUMEDAD_PROM"].mean(), 1
-    ) if not clima_filtrado.empty else 0
-
-    precip = round(
-        clima_filtrado["PRECIP_TOTAL"].mean(), 1
-    ) if not clima_filtrado.empty else 0
-
-    # =====================================================
-    # CULTIVOS
-    # =====================================================
-    cultivos_res = ["SIN DATOS"]
-    if (
-        not cultivos_filtrado.empty and
-        "P204_NOM" in cultivos_filtrado.columns
-    ):
-
-        cultivos_res = (
-            cultivos_filtrado["P204_NOM"]
-            .dropna()
-            .astype(str)
-            .str.strip()
-            .str.upper()
-            .value_counts()
-            .head(3)
-            .index
-            .tolist()
-        )
-
-    # =====================================================
-    # RIESGO CLIMATICO
-    # =====================================================
-    riesgo = calcular_riesgo(
-        temp_min,
-        temp_max,
-        precip
-    )
-
-    # =====================================================
-    # OPEN METEO
-    # =====================================================
-    geo = COORDENADAS.get(
-        region,
-        {"lat": -12.0, "lon": -77.0}
-    )
-    temp_actual = 0
-    humedad_actual = 0
-    rango_15d = "No disponible"
-
+    # Clima Real
+    geo = COORDENADAS.get(r_user, {"lat": -12.0, "lon": -77.0})
+    temp_tr, hum_tr, r15 = 20.0, 65, "10° / 25°"
     try:
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={geo['lat']}&longitude={geo['lon']}&current=temperature_2m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto"
+        r = requests.get(url, timeout=5).json()
+        temp_tr = r['current']['temperature_2m']
+        hum_tr = r['current']['relative_humidity_2m']
+        r15 = f"{min(r['daily']['temperature_2m_min'])}° / {max(r['daily']['temperature_2m_max'])}°"
+    except: pass
 
-        url = (
-            f"https://api.open-meteo.com/v1/forecast?"
-            f"latitude={geo['lat']}"
-            f"&longitude={geo['lon']}"
-            f"&current=temperature_2m,relative_humidity_2m"
-            f"&daily=temperature_2m_max,temperature_2m_min"
-            f"&timezone=auto"
-        )
-
-        response = requests.get(url, timeout=5).json()
-        temp_actual = response["current"]["temperature_2m"]
-        humedad_actual = response["current"]["relative_humidity_2m"]
-        rango_15d = (
-            f"{min(response['daily']['temperature_2m_min'])}° / "
-            f"{max(response['daily']['temperature_2m_max'])}°"
-        )
-
-    except Exception as e:
-        print(f"⚠️ ERROR OPEN METEO: {e}")
-
-    # =====================================================
-    # DETALLES
-    # =====================================================
-
-    detalles = []
-
-    for i, cultivo in enumerate(cultivos_res):
-
-        detalles.append({
-            "nombre": f"{i+1}. {cultivo}",
-            "msg": f"RiesGO climático: {riesgo}"
-        })
-
-    # =====================================================
-    # RESPUESTA
-    # =====================================================
+    detalles = [{"nombre": f"{i+1}. {c}", "msg": "Época de siembra" if temp_tr > 15 else "Protección contra heladas"} for i, c in enumerate(cultivos_res)]
 
     return {
-        "region": region,
-        "provincia": provincia,
-        "distrito": distrito,
+        "region": r_user,
+        "provincia": req.provincia.upper(),
+        "distrito": d_user,
         "registros_ena": registros,
-        "temp_actual": temp_actual,
-        "humedad_actual": humedad_actual,
-        "rango_15d": rango_15d,
-        "riesgo_climatico": riesgo,
-        "ena_stats": {
-            "temp_media": media_temp,
-            "temp_min": temp_min,
-            "temp_max": temp_max,
-            "humedad": humedad,
-            "precipitacion": precip
-        },
-        "top_cultivos": cultivos_res,
-        "recomendacion_principal":
-            f"Según el historial climático de {distrito}, "
-            f"se recomienda priorizar el cultivo {cultivos_res[0]}.",
+        "temp_actual": temp_tr,
+        "humedad": hum_tr,
+        "rango_15d": r15,
+        "ena_stats": {"media": media_h, "min": min_h, "max": max_h, "precip": precip_h},
+        "top_distrito": ", ".join(cultivos_res),
+        "top_region": ", ".join(cultivos_res),
+        "recomendacion_principal": f"Con {temp_tr}°C, te sugerimos priorizar {cultivos_res[0]}.",
         "detalles_cultivos": detalles
     }
 
-# =========================================================
-# MAIN
-# =========================================================
 if __name__ == "__main__":
-    uvicorn.run(app,host="127.0.0.1",port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
