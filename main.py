@@ -10,9 +10,7 @@ from pydantic import BaseModel
 # =========================================================
 # APP
 # =========================================================
-
 app = FastAPI()
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,14 +21,13 @@ app.add_middleware(
 # =========================================================
 # RUTAS
 # =========================================================
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # =========================================================
+
 # OPEN METEO
 # =========================================================
-
 COORDENADAS = {
     "LAMBAYEQUE": {"lat": -6.7, "lon": -79.9},
     "LA LIBERTAD": {"lat": -8.1, "lon": -79.0},
@@ -44,10 +41,8 @@ COORDENADAS = {
 # =========================================================
 # CARGA DE DATOS-
 # =========================================================
-
 def cargar_datos():
     try:
-
         # =====================================================
         # ARCHIVOS
         # =====================================================
@@ -84,7 +79,6 @@ def cargar_datos():
         # =====================================================
         # RENOMBRE CLIMA
         # =====================================================
-
         clima_df.rename(columns={
             "TMEAN": "TEMP_MEDIA_PROM",
             "TMAX": "TEMP_MAX_PROM",
@@ -108,7 +102,6 @@ def cargar_datos():
         # =====================================================
         # COLUMNAS NUMERICAS
         # =====================================================
-
         columnas_clima = [
             "TEMP_MEDIA_PROM",
             "TEMP_MAX_PROM",
@@ -116,7 +109,6 @@ def cargar_datos():
             "HUMEDAD_PROM",
             "PRECIP_TOTAL"
         ]
-
         for col in columnas_clima:
             if col in clima_df.columns:
                 clima_df[col] = (clima_df[col].astype(str).str.replace(",", ".", regex=False))
@@ -137,7 +129,6 @@ def cargar_datos():
         return None, None, None
 
 clima_df, caratula_df, cultivos_df = cargar_datos()
-
 # =========================================================
 # MODELO
 # =========================================================
@@ -155,18 +146,15 @@ def get_ubicaciones():
     if caratula_df is None:
         return {}
     tree = {}
-
     df_mini = caratula_df[
         ["NOMBREDD", "NOMBREPV", "NOMBREDI"]
     ].drop_duplicates()
-
     for _, row in df_mini.iterrows():
         region = row["NOMBREDD"]
         provincia = row["NOMBREPV"]
         distrito = row["NOMBREDI"]
         if region not in tree:
             tree[region] = {}
-
         if provincia not in tree[region]:
             tree[region][provincia] = []
         tree[region][provincia].append(distrito)
@@ -180,7 +168,6 @@ def calcular_riesgo(temp_min, temp_max, precip):
         return "HELADA"
     elif temp_max >= 35:
         return "CALOR EXTREMO"
-
     elif precip >= 150:
         return "EXCESO LLUVIA"
     else:
@@ -189,18 +176,14 @@ def calcular_riesgo(temp_min, temp_max, precip):
 # =========================================================
 # CONSULTA
 # =========================================================
-
 @app.post("/consulta")
 def post_consulta(req: Consulta):
-
     region = req.region.strip().upper()
     provincia = req.provincia.strip().upper()
     distrito = req.distrito.strip().upper()
-
     # =====================================================
     # FILTRO CLIMA
     # =====================================================
-
     clima_filtrado = clima_df[
         (clima_df["NOMBREDD"] == region) &
         (clima_df["NOMBREPV"] == provincia) &
@@ -210,7 +193,6 @@ def post_consulta(req: Consulta):
     # =====================================================
     # FILTRO CULTIVOS
     # =====================================================
-
     cultivos_filtrado = cultivos_df[
         (cultivos_df["NOMBREDD"] == region) &
         (cultivos_df["NOMBREPV"] == provincia) &
@@ -220,7 +202,6 @@ def post_consulta(req: Consulta):
     # =====================================================
     # VALIDAR DATOS
     # =====================================================
-
     print("========== FILTRO ==========")
     print(region, provincia, distrito)
 
@@ -233,7 +214,6 @@ def post_consulta(req: Consulta):
     # =====================================================
     # VARIABLES CLIMATICAS
     # =====================================================
-
     registros = len(clima_filtrado)
 
     media_temp = round(
@@ -259,9 +239,7 @@ def post_consulta(req: Consulta):
     # =====================================================
     # CULTIVOS
     # =====================================================
-
     cultivos_res = ["SIN DATOS"]
-
     if (
         not cultivos_filtrado.empty and
         "P204_NOM" in cultivos_filtrado.columns
@@ -282,7 +260,6 @@ def post_consulta(req: Consulta):
     # =====================================================
     # RIESGO CLIMATICO
     # =====================================================
-
     riesgo = calcular_riesgo(
         temp_min,
         temp_max,
@@ -292,12 +269,10 @@ def post_consulta(req: Consulta):
     # =====================================================
     # OPEN METEO
     # =====================================================
-
     geo = COORDENADAS.get(
         region,
         {"lat": -12.0, "lon": -77.0}
     )
-
     temp_actual = 0
     humedad_actual = 0
     rango_15d = "No disponible"
@@ -314,11 +289,8 @@ def post_consulta(req: Consulta):
         )
 
         response = requests.get(url, timeout=5).json()
-
         temp_actual = response["current"]["temperature_2m"]
-
         humedad_actual = response["current"]["relative_humidity_2m"]
-
         rango_15d = (
             f"{min(response['daily']['temperature_2m_min'])}° / "
             f"{max(response['daily']['temperature_2m_max'])}°"
@@ -345,19 +317,14 @@ def post_consulta(req: Consulta):
     # =====================================================
 
     return {
-
         "region": region,
         "provincia": provincia,
         "distrito": distrito,
-
         "registros_ena": registros,
-
         "temp_actual": temp_actual,
         "humedad_actual": humedad_actual,
         "rango_15d": rango_15d,
-
         "riesgo_climatico": riesgo,
-
         "ena_stats": {
             "temp_media": media_temp,
             "temp_min": temp_min,
@@ -365,18 +332,15 @@ def post_consulta(req: Consulta):
             "humedad": humedad,
             "precipitacion": precip
         },
-
         "top_cultivos": cultivos_res,
-
         "recomendacion_principal":
             f"Según el historial climático de {distrito}, "
             f"se recomienda priorizar el cultivo {cultivos_res[0]}.",
-
         "detalles_cultivos": detalles
     }
+
 # =========================================================
 # MAIN
 # =========================================================
-
 if __name__ == "__main__":
     uvicorn.run(app,host="127.0.0.1",port=8000)
