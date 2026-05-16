@@ -8,39 +8,54 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Inter:wght@400;700;900&display=swap');
-        
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: #f3f4f6; 
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         .ena-mono { font-family: 'Roboto Mono', monospace; }
-        .colab-card { 
-            background: white; 
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        .colab-card { background: white; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+
+        /* Animación de entrada para alertas fitosanitarias */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
+        .alerta-card { animation: slideIn 0.4s ease forwards; }
+
+        /* Colores por nivel de riesgo */
+        .nivel-ALTO     { border-left-color: #ef4444; background-color: #fef2f2; }
+        .nivel-CRÍTICO  { border-left-color: #7c3aed; background-color: #f5f3ff; }
+        .nivel-MODERADO { border-left-color: #f59e0b; background-color: #fffbeb; }
+        .nivel-BAJO     { border-left-color: #10b981; background-color: #ecfdf5; }
+
+        .badge-ALTO     { background: #fee2e2; color: #991b1b; }
+        .badge-CRÍTICO  { background: #ede9fe; color: #5b21b6; }
+        .badge-MODERADO { background: #fef3c7; color: #92400e; }
+        .badge-BAJO     { background: #d1fae5; color: #065f46; }
     </style>
 </head>
 <body class="p-4 md:p-10">
 
     <div class="max-w-2xl mx-auto">
+
+        <!-- CONFIGURACIÓN -->
         <div class="bg-slate-800 p-6 rounded-3xl mb-8 shadow-xl">
             <h1 class="text-white text-lg font-black mb-4 flex items-center gap-2">
                 <i class="fas fa-seedling text-green-400"></i> CONFIGURACIÓN DE CONSULTA
             </h1>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <select id="sel-region" onchange="updateProvincias()" class="bg-slate-900 text-white border border-slate-700 p-3 rounded-xl outline-none focus:border-blue-500 text-sm italic"></select>
-                <select id="sel-prov" onchange="updateDistritos()" class="bg-slate-900 text-white border border-slate-700 p-3 rounded-xl outline-none focus:border-blue-500 text-sm italic"></select>
-                <select id="sel-dist" class="bg-slate-900 text-white border border-slate-700 p-3 rounded-xl outline-none focus:border-blue-500 text-sm italic"></select>
+                <select id="sel-prov"   onchange="updateDistritos()" class="bg-slate-900 text-white border border-slate-700 p-3 rounded-xl outline-none focus:border-blue-500 text-sm italic"></select>
+                <select id="sel-dist"                                 class="bg-slate-900 text-white border border-slate-700 p-3 rounded-xl outline-none focus:border-blue-500 text-sm italic"></select>
             </div>
-            <button onclick="consultar()" id="btn-search" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl transition-all flex items-center justify-center gap-3">
+            <button onclick="consultar()" id="btn-search"
+                class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl transition-all flex items-center justify-center gap-3">
                 <i class="fas fa-search"></i> EJECUTAR ANÁLISIS AGROCLIMÁTICO
             </button>
         </div>
 
-        <div id="dashboard" class="hidden animate-in fade-in duration-500">
+        <!-- DASHBOARD -->
+        <div id="dashboard" class="hidden">
             <div class="colab-card p-8 rounded-lg border-l-[12px] border-l-blue-600">
-                
+
+                <!-- Header -->
                 <div class="border-b border-slate-100 pb-4 mb-5">
                     <h2 id="res-header-title" class="text-2xl font-black text-slate-800 tracking-tighter uppercase leading-none">---</h2>
                     <p class="text-[11px] font-bold text-blue-600 mt-2 uppercase tracking-tight">
@@ -48,12 +63,14 @@
                     </p>
                 </div>
 
+                <!-- Resumen -->
                 <div class="text-[13px] leading-relaxed mb-6 text-slate-700">
-                    Estás en <span id="txt-dist" class="font-bold">---</span>, <span id="txt-prov">---</span> (<span id="txt-reg">---</span>) 
-                    → cultivos más frecuentes en la zona: <span id="res-top-dist" class="text-blue-800 font-bold">---</span> 
+                    Estás en <span id="txt-dist" class="font-bold">---</span>, <span id="txt-prov">---</span> (<span id="txt-reg">---</span>)
+                    → cultivos más frecuentes: <span id="res-top-dist" class="text-blue-800 font-bold">---</span>
                     → <span id="res-main-rec" class="bg-yellow-200 px-1 font-black text-slate-900">---</span>
                 </div>
 
+                <!-- Temporada -->
                 <div class="bg-blue-50 p-4 rounded-xl mb-8 flex items-center gap-4 border border-blue-100">
                     <span class="text-2xl">📅</span>
                     <div>
@@ -62,6 +79,7 @@
                     </div>
                 </div>
 
+                <!-- Métricas clima -->
                 <div class="grid grid-cols-3 gap-3 mb-8">
                     <div class="bg-slate-50 p-4 rounded-xl text-center border border-slate-200">
                         <p class="text-[9px] font-black text-slate-400 uppercase mb-1">Temp Actual</p>
@@ -77,36 +95,55 @@
                     </div>
                 </div>
 
+                <!-- Clima histórico -->
                 <div class="mb-8">
                     <h4 class="text-[11px] font-black text-slate-500 uppercase mb-3 flex items-center gap-2">
                         <i class="fas fa-folder-open text-amber-500"></i> Clima histórico del distrito (ENA 2024)
                     </h4>
                     <div class="ena-mono text-[12px] bg-slate-900 text-white p-4 rounded-lg shadow-inner overflow-x-auto whitespace-nowrap">
-                        🌡 Media: <span id="h-med" class="text-blue-300">--</span>°C &nbsp;&nbsp; 
-                        ⬇ Mín: <span id="h-min" class="text-cyan-300">--</span>°C &nbsp;&nbsp; 
-                        ⬆ Máx: <span id="h-max" class="text-orange-300">--</span>°C &nbsp;&nbsp; 
+                        🌡 Media: <span id="h-med" class="text-blue-300">--</span>°C &nbsp;&nbsp;
+                        ⬇ Mín: <span id="h-min" class="text-cyan-300">--</span>°C &nbsp;&nbsp;
+                        ⬆ Máx: <span id="h-max" class="text-orange-300">--</span>°C &nbsp;&nbsp;
                         🌧 Prec: <span id="h-pre" class="text-blue-400">--</span> mm
                     </div>
                 </div>
 
+                <!-- Riesgo climático -->
                 <div id="box-riesgo" class="bg-green-50 border-l-8 border-green-500 p-4 mb-8">
                     <p id="lbl-riesgo" class="text-[11px] font-black text-green-700 uppercase mb-1 tracking-widest">⚠️ RIESGO BAJO</p>
                     <p id="msg-riesgo" class="text-[12px] text-green-800 italic font-medium">✅ Condiciones climáticas normales para la región y temporada.</p>
                 </div>
 
+                <!-- ══════════════════════════════════════════════════════
+                     🌿 NUEVA SECCIÓN: RIESGO FITOSANITARIO
+                ════════════════════════════════════════════════════════ -->
+                <div class="mb-8">
+                    <h4 class="text-[11px] font-black text-slate-500 uppercase mb-1 flex items-center gap-2">
+                        <i class="fas fa-bug text-red-500"></i> Detección de Plagas por Clima
+                    </h4>
+                    <p class="text-[11px] text-slate-400 italic mb-3">
+                        Basado en temperatura y humedad actuales (Open-Meteo)
+                    </p>
+                    <div id="lista-fitosanitario" class="space-y-3"></div>
+                </div>
+                <!-- ════════════════════════════════════════════════════ -->
+
+                <!-- Top cultivos -->
                 <div class="space-y-2 mb-8 text-[12px] border-y border-slate-100 py-4">
                     <p><strong class="text-slate-800">🌾 Top ENA — Distrito:</strong> <span id="top-d" class="text-slate-500">---</span></p>
-                    <p><strong class="text-slate-800">🌾 Top ENA — Región:</strong> <span id="top-r" class="text-slate-500">---</span></p>
+                    <p><strong class="text-slate-800">🌾 Top ENA — Región:</strong>   <span id="top-r" class="text-slate-500">---</span></p>
                 </div>
 
+                <!-- Recomendaciones -->
                 <div>
                     <h4 class="text-[11px] font-black text-slate-400 uppercase mb-4 tracking-tighter">Recomendaciones (clima TR + ENA)</h4>
                     <div id="list-recs" class="space-y-4"></div>
                 </div>
 
+                <!-- Footer -->
                 <div class="mt-10 pt-4 border-t border-slate-100 flex justify-between items-center">
                     <p class="text-[10px] text-slate-400 font-bold italic">📡 Open-Meteo API (tiempo real)</p>
-                    <p class="text-[10px] text-slate-300 font-black">ENA 2024 V3.0</p>
+                    <p class="text-[10px] text-slate-300 font-black">ENA 2024 V3.1 🌿</p>
                 </div>
             </div>
         </div>
@@ -122,9 +159,9 @@
                 const sel = document.getElementById('sel-region');
                 Object.keys(dataTree).sort().forEach(reg => sel.add(new Option(reg, reg)));
                 updateProvincias();
-            } catch (e) { 
+            } catch (e) {
                 console.error(e);
-                alert("Error: El servidor backend (main.py) no responde."); 
+                alert("Error: El servidor backend (main.py) no responde.");
             }
         };
 
@@ -137,11 +174,35 @@
         }
 
         function updateDistritos() {
-            const reg = document.getElementById('sel-region').value;
+            const reg  = document.getElementById('sel-region').value;
             const prov = document.getElementById('sel-prov').value;
-            const sel = document.getElementById('sel-dist');
+            const sel  = document.getElementById('sel-dist');
             sel.innerHTML = "";
-            (dataTree[reg][prov] || []).sort().forEach(d => sel.add(new Option(d, d)));
+            (dataTree[reg]?.[prov] || []).sort().forEach(d => sel.add(new Option(d, d)));
+        }
+
+        // ══════════════════════════════════════════════════════
+        // 🌿 Renderiza alertas fitosanitarias
+        // ══════════════════════════════════════════════════════
+        function renderFitosanitario(alertas) {
+            const container = document.getElementById('lista-fitosanitario');
+            container.innerHTML = alertas.map((a, i) => `
+                <div class="alerta-card border-l-4 p-4 rounded-r-xl nivel-${a.nivel}"
+                     style="animation-delay: ${i * 0.1}s">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[13px] font-black text-slate-800">
+                            ${a.icono} ${a.tipo}
+                        </span>
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded-full badge-${a.nivel}">
+                            ${a.nivel}
+                        </span>
+                    </div>
+                    <p class="text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wide">
+                        ${a.condicion}
+                    </p>
+                    <p class="text-[12px] text-slate-600 italic">${a.mensaje}</p>
+                </div>
+            `).join('');
         }
 
         async function consultar() {
@@ -150,9 +211,9 @@
             btn.disabled = true;
 
             const payload = {
-                region: document.getElementById('sel-region').value,
+                region:    document.getElementById('sel-region').value,
                 provincia: document.getElementById('sel-prov').value,
-                distrito: document.getElementById('sel-dist').value
+                distrito:  document.getElementById('sel-dist').value
             };
 
             try {
@@ -164,30 +225,27 @@
                 const data = await response.json();
 
                 document.getElementById('dashboard').classList.remove('hidden');
-                
+
                 document.getElementById('res-header-title').innerText = `${data.distrito} · ${data.provincia} · ${data.region}`;
-                document.getElementById('res-count').innerText = data.registros_ena;
-                document.getElementById('txt-dist').innerText = data.distrito;
-                document.getElementById('txt-prov').innerText = data.provincia;
-                document.getElementById('txt-reg').innerText = data.region;
-                
-                // CAMBIO APLICADO: Humedad y Cultivos (join)
-                document.getElementById('res-hum').innerText = data.humedad_actual + "%";
+                document.getElementById('res-count').innerText   = data.registros_ena;
+                document.getElementById('txt-dist').innerText   = data.distrito;
+                document.getElementById('txt-prov').innerText   = data.provincia;
+                document.getElementById('txt-reg').innerText    = data.region;
+                document.getElementById('res-hum').innerText    = data.humedad_actual + "%";
                 document.getElementById('res-top-dist').innerText = data.top_cultivos.join(', ');
-                document.getElementById('top-d').innerText = data.top_cultivos.join(', ');
-                document.getElementById('top-r').innerText = data.top_cultivos.join(', ');
-                
+                document.getElementById('top-d').innerText      = data.top_cultivos.join(', ');
+                document.getElementById('top-r').innerText      = data.top_cultivos.join(', ');
                 document.getElementById('res-main-rec').innerText = data.recomendacion_principal;
-                document.getElementById('res-temp').innerText = data.temp_actual + "°C";
-                document.getElementById('res-15d').innerText = data.rango_15d;
+                document.getElementById('res-temp').innerText   = data.temp_actual + "°C";
+                document.getElementById('res-15d').innerText    = data.rango_15d;
+                document.getElementById('h-med').innerText      = data.ena_stats.media;
+                document.getElementById('h-min').innerText      = data.ena_stats.min;
+                document.getElementById('h-max').innerText      = data.ena_stats.max;
+                document.getElementById('h-pre').innerText      = data.ena_stats.precip;
 
-                document.getElementById('h-med').innerText = data.ena_stats.media;
-                document.getElementById('h-min').innerText = data.ena_stats.min;
-                document.getElementById('h-max').innerText = data.ena_stats.max;
-                document.getElementById('h-pre').innerText = data.ena_stats.precip;
-
+                // Riesgo climático
                 const boxRiesgo = document.getElementById('box-riesgo');
-                if(data.temp_actual < 10) {
+                if (data.temp_actual < 10) {
                     boxRiesgo.className = "bg-red-50 border-l-8 border-red-500 p-4 mb-8";
                     document.getElementById('lbl-riesgo').className = "text-[11px] font-black text-red-700 uppercase mb-1 tracking-widest";
                     document.getElementById('lbl-riesgo').innerText = "⚠️ RIESGO ALTO";
@@ -199,6 +257,12 @@
                     document.getElementById('msg-riesgo').innerText = "✅ Condiciones climáticas normales para la región y temporada.";
                 }
 
+                // 🌿 Renderizar alertas fitosanitarias
+                if (data.alertas_fitosanitarias) {
+                    renderFitosanitario(data.alertas_fitosanitarias);
+                }
+
+                // Recomendaciones por cultivo
                 const container = document.getElementById('list-recs');
                 container.innerHTML = data.detalles_cultivos.map(c => `
                     <div class="border-b border-slate-100 pb-3">
