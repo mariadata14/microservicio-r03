@@ -6,6 +6,8 @@ import requests
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 # =========================================================
@@ -24,6 +26,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+app.mount("/static", StaticFiles(directory="."), name="static")
+
+@app.get("/")
+def root():
+    return FileResponse("index.html")
 
 # =========================================================
 # RUTAS
