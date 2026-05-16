@@ -64,10 +64,19 @@ def cargar_datos():
         caratula_df = leer_limpio(caratula_path)
         cultivos_df = leer_limpio(cultivos_path)
 
+        for df in [clima_df, caratula_df, cultivos_df]:
+            df.rename(columns={
+                "DEPARTAMENTO": "NOMBREDD",
+                "PROVINCIA"   : "NOMBREPV",
+                "DISTRITO"    : "NOMBREDI",
+            }, inplace=True)
+
         clima_df.rename(columns={
-            "DEPARTAMENTO"       : "NOMBREDD",
-            "PROVINCIA"          : "NOMBREPV",
-            "DISTRITO"           : "NOMBREDI",
+            "TMEAN": "TEMP_MEDIA_PROM",
+            "TMAX" : "TEMP_MAX_PROM",
+            "TMIN" : "TEMP_MIN_PROM",
+            "HUMR" : "HUMEDAD_PROM",
+            "PTOT" : "PRECIP_TOTAL",
             "TEMPERATURA MEDIA"  : "TEMP_MEDIA_PROM",
             "TEMPERATURA MAXIMA" : "TEMP_MAX_PROM",
             "TEMPERATURA MINIMA" : "TEMP_MIN_PROM",
