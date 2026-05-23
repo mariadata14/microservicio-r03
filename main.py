@@ -859,6 +859,44 @@ def post_consulta(req: Consulta):
             )
     }
 
+
+# =========================================================
+# ENDPOINT: /ubicacion-gps
+# Recibe lat/lon del celular y devuelve el distrito más cercano
+# =========================================================
+class CoordsGPS(BaseModel):
+    lat: float
+    lon: float
+
+@app.post("/ubicacion-gps")
+def ubicacion_por_gps(coords: CoordsGPS):
+    validar_datos()
+
+    if "LATITUD" not in caratula_df.columns or "LONGITUD" not in caratula_df.columns:
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo CARATULA.xlsx no tiene columnas LATITUD/LONGITUD."
+        )
+
+    df = caratula_df[["NOMBREDD","NOMBREPV","NOMBREDI","LATITUD","LONGITUD"]].dropna().drop_duplicates().copy()
+
+    if df.empty:
+        raise HTTPException(status_code=404, detail="No hay coordenadas disponibles.")
+
+    df["distancia"] = ((df["LATITUD"] - coords.lat)**2 + (df["LONGITUD"] - coords.lon)**2)**0.5
+    fila = df.loc[df["distancia"].idxmin()]
+
+    logger.info(f"GPS ({coords.lat},{coords.lon}) -> {fila['NOMBREDI']} / {fila['NOMBREPV']} / {fila['NOMBREDD']}")
+
+    return {
+        "region":       fila["NOMBREDD"],
+        "provincia":    fila["NOMBREPV"],
+        "distrito":     fila["NOMBREDI"],
+        "lat":          round(float(fila["LATITUD"]), 4),
+        "lon":          round(float(fila["LONGITUD"]), 4),
+        "distancia_km": round(float(fila["distancia"]) * 111, 2)
+    }
+
 # =========================================================
 # MAIN
 # =========================================================
