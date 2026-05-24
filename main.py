@@ -49,12 +49,6 @@ ubicacion_df = None
 # HELPERS
 # =========================================================
 def normalizar_texto(df, columnas):
-    """
-    Limpia textos:
-    - mayúsculas
-    - sin espacios
-    - sin tildes
-    """
     for col in columnas:
         if col in df.columns:
             df[col] = (
@@ -62,11 +56,17 @@ def normalizar_texto(df, columnas):
                 .astype(str)
                 .str.strip()
                 .str.upper()
-                .str.replace("Ñ", "ENIE_TEMP", regex=False)
+                .str.replace("Ã'", "N", regex=False)
+                .str.replace("Ã±", "N", regex=False)
+                .str.replace("Ñ", "N", regex=False)
+                .str.replace("Ã\x81", "A", regex=False)
+                .str.replace("Ã©", "E", regex=False)
+                .str.replace("Ã\x8d", "I", regex=False)
+                .str.replace("Ã\x93", "O", regex=False)
+                .str.replace("Ãš", "U", regex=False)
                 .str.normalize("NFKD")
                 .str.encode("ascii", errors="ignore")
                 .str.decode("utf-8")
-                .str.replace("ENIE_TEMP", "Ñ", regex=False)
             )
     return df
 
