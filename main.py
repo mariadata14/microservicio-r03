@@ -45,6 +45,7 @@ clima_df = None
 cultivos_df = None
 ubicacion_df = None
 
+# fix: eliminado encode ascii para corregir tildes
 # =========================================================
 # HELPERS
 # =========================================================
