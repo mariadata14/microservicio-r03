@@ -46,6 +46,7 @@ clima_df    = None
 caratula_df = None
 cultivos_df = None
 
+# fix: eliminado encode ascii para corregir tildes
 # =========================================================
 # CARGA DE DATOS
 # =========================================================
