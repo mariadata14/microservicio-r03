@@ -729,7 +729,7 @@
 </div>
 
 <script>
-    const API_BASE = 'http://127.0.0.1:8000';
+    const API_BASE = window.location.origin;
     let dataTree = {};
 
     // Imágenes reales de Wikimedia Commons (libres de uso)
@@ -878,7 +878,6 @@
 
             document.getElementById('cultivos-grid').innerHTML = data.agricultura.top_cultivos.map((c, i) => `
                 <div class="cultivo-card">
-                    
                     <div class="cultivo-num">#${i+1}</div>
                     <div class="cultivo-name">${c}</div>
                     <div class="cultivo-risk">${data.riesgo_climatico}</div>

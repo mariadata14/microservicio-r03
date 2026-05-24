@@ -62,9 +62,11 @@ def normalizar_texto(df, columnas):
                 .astype(str)
                 .str.strip()
                 .str.upper()
+                .str.replace("Ñ", "ENIE_TEMP", regex=False)
                 .str.normalize("NFKD")
                 .str.encode("ascii", errors="ignore")
                 .str.decode("utf-8")
+                .str.replace("ENIE_TEMP", "Ñ", regex=False)
             )
     return df
 
@@ -119,7 +121,7 @@ def cargar_datos():
         # UBICACIONES HISTÓRICAS (LAT/LON)
         # =====================================================
         ubicacion_path = os.path.join(DATA_DIR,"ubi_historico","CARATULA_2024.csv")
-        ubicacion_df = pd.read_csv(ubicacion_path,encoding="latin1",low_memory=False)
+        ubicacion_df = pd.read_csv(ubicacion_path,encoding="utf-8",low_memory=False)
         ubicacion_df.columns = (ubicacion_df.columns.str.strip().str.upper())
 
         # Renombrar
@@ -872,13 +874,13 @@ class CoordsGPS(BaseModel):
 def ubicacion_por_gps(coords: CoordsGPS):
     validar_datos()
 
-    if "LATITUD" not in caratula_df.columns or "LONGITUD" not in caratula_df.columns:
+    if "LATITUD" not in ubicacion_df.columns or "LONGITUD" not in ubicacion_df.columns:
         raise HTTPException(
             status_code=400,
             detail="El archivo CARATULA.xlsx no tiene columnas LATITUD/LONGITUD."
         )
 
-    df = caratula_df[["NOMBREDD","NOMBREPV","NOMBREDI","LATITUD","LONGITUD"]].dropna().drop_duplicates().copy()
+    df = ubicacion_df[["NOMBREDD","NOMBREPV","NOMBREDI","LATITUD","LONGITUD"]].dropna().drop_duplicates().copy()
 
     if df.empty:
         raise HTTPException(status_code=404, detail="No hay coordenadas disponibles.")
