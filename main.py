@@ -3,7 +3,9 @@ import logging
 import pandas as pd
 import uvicorn
 import requests
+import unicodedata
 
+from services.forecast_service import (preparar_fecha_iso,forecast_temperatura)
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -49,26 +51,43 @@ ubicacion_df = None
 # =========================================================
 # HELPERS
 # =========================================================
+def limpiar_texto(valor):
+
+    if pd.isna(valor):
+        return None
+
+    valor = str(valor).strip().upper()
+
+    # Quitar tildes
+    valor = unicodedata.normalize("NFKD", valor)
+    valor = valor.encode("ascii", "ignore").decode("utf-8")
+
+    # Quitar signos raros
+    valor = valor.replace("?", "")
+
+    # Limpiar espacios dobles
+    valor = " ".join(valor.split())
+
+    # Correcciones manuales
+    correcciones = {
+        "APURMAC": "APURIMAC",
+        "HUNUCO": "HUANUCO",
+        "JUNN": "JUNIN",
+        "SAN MARTN": "SAN MARTIN"
+    }
+
+    valor = correcciones.get(valor, valor)
+
+    # Valores inválidos
+    if valor in ["", "NONE", "NAN", "SIN DATO"]:
+        return None
+
+    return valor
+
 def normalizar_texto(df, columnas):
     for col in columnas:
         if col in df.columns:
-            df[col] = (
-                df[col]
-                .astype(str)
-                .str.strip()
-                .str.upper()
-                .str.replace("Ã'", "N", regex=False)
-                .str.replace("Ã±", "N", regex=False)
-                .str.replace("Ñ", "N", regex=False)
-                .str.replace("Ã\x81", "A", regex=False)
-                .str.replace("Ã©", "E", regex=False)
-                .str.replace("Ã\x8d", "I", regex=False)
-                .str.replace("Ã\x93", "O", regex=False)
-                .str.replace("Ãš", "U", regex=False)
-                .str.normalize("NFKD")
-                .str.encode("ascii", errors="ignore")
-                .str.decode("utf-8")
-            )
+            df[col] = df[col].apply(limpiar_texto)
     return df
 
 
@@ -81,9 +100,12 @@ def convertir_numerico(df, columnas):
                 .str.replace(",", ".", regex=False)
                 .str.strip()
             )
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-    return df
 
+            df[col] = pd.to_numeric(
+                df[col],
+                errors="coerce"
+            )
+    return df
 
 def limpiar(val):
     import numpy as np
@@ -133,15 +155,10 @@ def cargar_datos():
         }, inplace=True)
 
         # Normalizar texto
-        ubicacion_df = normalizar_texto(ubicacion_df,
-            ["NOMBREDD", "NOMBREPV", "NOMBREDI"]
-        )
+        ubicacion_df = normalizar_texto(ubicacion_df, ["NOMBREDD", "NOMBREPV", "NOMBREDI"])
 
         # Coordenadas numéricas
-        ubicacion_df = convertir_numerico(ubicacion_df,
-            ["LATITUD", "LONGITUD"]
-        )
-
+        ubicacion_df = convertir_numerico(ubicacion_df, ["LATITUD", "LONGITUD"])
         logger.info(f"✅ Ubicaciones cargadas: {len(ubicacion_df)} registros")
 
         # =====================================================
@@ -177,6 +194,7 @@ def cargar_datos():
             df = normalizar_texto(df,["NOMBREDD", "NOMBREPV", "NOMBREDI"])
             df = convertir_numerico(df,["TEMP_MEDIA_PROM","TEMP_MAX_PROM","TEMP_MIN_PROM",
                                         "HUMEDAD_PROM","PRECIP_TOTAL"])
+            df = preparar_fecha_iso(df)
             lista_clima.append(df)
 
         clima_df = pd.concat(lista_clima, ignore_index=True)
@@ -196,7 +214,6 @@ def cargar_datos():
                     "02_Cap200ab.csv"
                 )
             },
-
             # 2022
             {
                 "anio": 2022,
@@ -207,7 +224,6 @@ def cargar_datos():
                     "02_Cap200ab.csv"
                 )
             },
-
             # 2023
             {
                 "anio": 2023,
@@ -218,7 +234,6 @@ def cargar_datos():
                     "03_CAP200AB.csv"
                 )
             },
-
             # 2024
             {
                 "anio": 2024,
@@ -234,6 +249,9 @@ def cargar_datos():
         lista_cultivos = []
 
         columnas_principales = [
+            # =================================================
+            # GEOGRÁFICAS
+            # =================================================
             "ANIO",
 
             "CCDD",
@@ -244,18 +262,27 @@ def cargar_datos():
 
             "CCDI",
             "NOMBREDI",
-
+            
             "REGION",
 
+            # =================================================
+            # CULTIVO
+            # =================================================
             "P204_COD",
             "P204_NOM",
 
+            # =================================================
+            # PRODUCCIÓN
+            # =================================================
             "P217_SUP_HA",
 
             "P219_CANT_1",
-
+            
             "P219_UM",
 
+            # =================================================
+            # ECONÓMICAS
+            # =================================================
             "P220_1_PRE_KG",
 
             "P220_1_VAL"
@@ -323,7 +350,6 @@ def cargar_datos():
             # =================================================
 
             # Rendimiento
-            # Evitar divisiones por cero
             sup_segura = df["P217_SUP_HA"].replace(0, pd.NA)
 
             # Rendimiento por hectárea
@@ -342,7 +368,10 @@ def cargar_datos():
             lista_cultivos.append(df)
 
         cultivos_df = pd.concat(lista_cultivos, ignore_index=True)
-        logger.info(f"✅ Agro histórico cargado: {len(cultivos_df)} registros")
+        logger.info(
+            f"✅ Agro histórico ENA 2021-2024 cargado: "
+            f"{len(cultivos_df)} registros"
+        )
         return clima_df, cultivos_df, ubicacion_df
 
     except Exception as e:
@@ -512,7 +541,7 @@ def get_ubicaciones():
         cultivos_df[
             ["NOMBREDD", "NOMBREPV", "NOMBREDI"]
         ]
-        .fillna("SIN_DATO")
+        .dropna()
         .drop_duplicates()
     )
 
@@ -536,9 +565,9 @@ def get_ubicaciones():
 @app.post("/consulta")
 def post_consulta(req: Consulta):
     validar_datos()
-    region = req.region.strip().upper()
-    provincia = req.provincia.strip().upper()
-    distrito = req.distrito.strip().upper()
+    region = " ".join(req.region.strip().upper().split())
+    provincia = " ".join(req.provincia.strip().upper().split())
+    distrito = " ".join(req.distrito.strip().upper().split())
 
     # =====================================================
     # FILTRAR
@@ -624,13 +653,9 @@ def post_consulta(req: Consulta):
     # PRODUCCIÓN TOTAL
     # =====================================================
     produccion_total = limpiar(cultivos_f["P219_CANT_1"].sum())
-
     superficie_total = limpiar(cultivos_f["P217_SUP_HA"].sum())
-
     precio_promedio = limpiar(cultivos_f["P220_1_PRE_KG"].mean())
-
     rendimiento_promedio = limpiar(cultivos_f["RENDIMIENTO_HA"].mean())
-
     valor_total = limpiar(cultivos_f["P220_1_VAL"].sum())
 
     # =====================================================
@@ -651,14 +676,10 @@ def post_consulta(req: Consulta):
 
         for _, row in agrupado.iterrows():
             tendencia.append({
-                "anio":
-                    limpiar(row["ANIO"]),
-                "produccion":
-                    limpiar(round(row["P219_CANT_1"], 2)),
-                "superficie":
-                    limpiar(round(row["P217_SUP_HA"], 2)),
-                "valor":
-                    limpiar(round(row["P220_1_VAL"], 2))
+                "anio": limpiar(row["ANIO"]),
+                "produccion": limpiar(round(row["P219_CANT_1"], 2)),
+                "superficie": limpiar(round(row["P217_SUP_HA"], 2)),
+                "valor": limpiar(round(row["P220_1_VAL"], 2))
             })
 
     # =====================================================
@@ -695,7 +716,6 @@ def post_consulta(req: Consulta):
     logger.info(f"📍 Coordenadas: {lat}, {lon}")
 
     try:
-
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={lat}&longitude={lon}"
@@ -703,31 +723,18 @@ def post_consulta(req: Consulta):
             f"&daily=temperature_2m_max,temperature_2m_min"
             f"&timezone=auto"
         )
-
         r = requests.get(url, timeout=5)
 
         if r.status_code == 200:
-
             response = r.json()
-
             temp_actual = response.get("current", {}).get("temperature_2m", 0)
-
             humedad_actual = response.get("current", {}).get("relative_humidity_2m", 0)
-
-            temp_min_15d = min(
-                response.get("daily", {}).get("temperature_2m_min", [0])
-            )
-
-            temp_max_15d = max(
-                response.get("daily", {}).get("temperature_2m_max", [0])
-            )
-
+            temp_min_15d = min(response.get("daily", {}).get("temperature_2m_min", [0]))
+            temp_max_15d = max(response.get("daily", {}).get("temperature_2m_max", [0]))
             rango_15d = f"{temp_min_15d}° / {temp_max_15d}°"
 
         else:
-            logger.warning(
-                f"⚠️ Open Meteo respondió: {r.status_code}"
-            )
+            logger.warning(f"⚠️ Open Meteo respondió: {r.status_code}")
 
     except Exception as e:
         logger.warning(f"⚠️ Error Open Meteo: {e}")
@@ -766,7 +773,18 @@ def post_consulta(req: Consulta):
         .index
         .tolist()
     )
+    # =====================================================
+    # FORECAST CLIMÁTICO
+    # =====================================================
+    forecast_temp_media = forecast_temperatura(clima_df,region,provincia,distrito,variable="TEMP_MEDIA_PROM")
 
+    forecast_temp_min = forecast_temperatura(clima_df,region,provincia,distrito,variable="TEMP_MIN_PROM")
+
+    forecast_temp_max = forecast_temperatura(clima_df,region,provincia,distrito,variable="TEMP_MAX_PROM")
+
+    forecast_humedad = forecast_temperatura(clima_df,region,provincia,distrito,variable="HUMEDAD_PROM")
+
+    forecast_precipitacion = forecast_temperatura(clima_df,region,provincia,distrito,variable="PRECIP_TOTAL")
 
     # =====================================================
     # RESPUESTA
@@ -783,73 +801,52 @@ def post_consulta(req: Consulta):
         # CLIMA
         # =================================================
         "clima": {
-
-            "temp_media_prom":
-                limpiar(temp_media_prom),
-
-            "temp_min_prom":
-                limpiar(temp_min_prom),
-
-            "temp_max_prom":
-                limpiar(temp_max_prom),
-
-            "humedad_prom":
-                limpiar(humedad_prom),
-
-            "precip_prom":
-                limpiar(precip_prom),
-
-            "temp_actual":
-                limpiar(temp_actual),
-
-            "humedad_actual":
-                limpiar(humedad_actual),
-
-            "rango_15d":
-                rango_15d
+            "temp_media_prom": limpiar(temp_media_prom),
+            "temp_min_prom":limpiar(temp_min_prom),
+            "temp_max_prom": limpiar(temp_max_prom),
+            "humedad_prom": limpiar(humedad_prom),
+            "precip_prom": limpiar(precip_prom),
+            "temp_actual": limpiar(temp_actual),
+            "humedad_actual": limpiar(humedad_actual),
+            "rango_15d": rango_15d
         },
 
         # =================================================
         # AGRICULTURA
         # =================================================
         "agricultura": {
-            
-            "top_region":
-                top_region,
-
-            "top_cultivos":
-                cultivos_res,
-
-            "produccion_total":
-                limpiar(produccion_total),
-
-            "superficie_total":
-                limpiar(superficie_total),
-
-            "precio_promedio":
-                limpiar(precio_promedio),
-
-            "rendimiento_promedio":
-                limpiar(rendimiento_promedio),
-
-            "valor_total":
-                limpiar(valor_total)
+            "top_region": top_region,
+            "top_cultivos": cultivos_res,
+            "produccion_total": limpiar(produccion_total),
+            "superficie_total": limpiar(superficie_total),
+            "precio_promedio": limpiar(precio_promedio),
+            "rendimiento_promedio": limpiar(rendimiento_promedio),
+            "valor_total": limpiar(valor_total)
         },
 
         # =================================================
         # TENDENCIA
         # =================================================
-        "tendencia_historica":
-            tendencia,
+        "tendencia_historica": tendencia,
+        
+
+        # =================================================
+        # FORECAST
+        # =================================================
+        "forecast_climatico": {
+            "temperatura_media": forecast_temp_media,
+            "temperatura_minima": forecast_temp_min,
+            "temperatura_maxima": forecast_temp_max,
+            "humedad": forecast_humedad,
+            "precipitacion": forecast_precipitacion
+        },
 
         # =================================================
         # RIESGOS
         # =================================================
-        "riesgo_climatico":
-            riesgo,
+        "riesgo_climatico": riesgo,
 
-        "alertas_fitosanitarias":
-            alertas_fitosanitarias,
+        "alertas_fitosanitarias": alertas_fitosanitarias,
 
         # =================================================
         # RECOMENDACIÓN
