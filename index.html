@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroClima Perú — ENA 2024</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Lato:wght@300;400;700&family=Courier+Prime:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --b0: #FAF6EE;
+            --b1: #F2EBD9;
+            --b2: #E5D9C0;
+            --b3: #C9B99A;
+            --b4: #A89070;
+            --ink: #2E2414;
+            --ink2: #5A4A32;
+            --ink3: #8A7458;
+            --green: #4A6741;
+            --green2: #6B8F62;
+            --green3: #9AB894;
+            --rust: #8B4A2A;
+            --gold: #B8862A;
+            --red: #8B2A2A;
+            --purple: #5A3A7A;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Lato', sans-serif;
+            background: var(--b0);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+
+        /* grain overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── HEADER ── */
+        .site-header {
+            background: var(--b1);
+            border-bottom: 1.5px solid var(--b3);
+            padding: 0.9rem 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-illustration {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+        }
+        .site-logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            color: var(--ink);
+            letter-spacing: -0.3px;
+        }
+        .site-logo em { color: var(--green); font-style: italic; }
+        .site-tagline {
+            margin-left: auto;
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.65rem;
+            color: var(--ink3);
+            letter-spacing: 0.5px;
+            border: 1px solid var(--b3);
+            padding: 0.15rem 0.6rem;
+            border-radius: 2px;
+        }
+
+        /* ── HERO ── */
+        .hero {
+            background: var(--b1);
+            border-bottom: 1.5px solid var(--b3);
+            padding: 2.5rem 1.8rem 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-deco {
+            position: absolute;
+            right: -10px;
+            top: -10px;
+            opacity: 0.08;
+            width: 200px;
+        }
+        .hero-label {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.62rem;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            color: var(--ink3);
+            margin-bottom: 0.5rem;
+        }
+        .hero-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1.5rem, 4vw, 2.2rem);
+            color: var(--ink);
+            line-height: 1.2;
+            margin-bottom: 1.8rem;
+        }
+        .hero-title span { color: var(--green); font-style: italic; }
+
+        .selector-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.7rem;
+            margin-bottom: 0.9rem;
+        }
+        .selector-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        .selector-label {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--ink3);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        select {
+            background: var(--b0);
+            border: 1.5px solid var(--b3);
+            color: var(--ink);
+            padding: 0.65rem 0.8rem;
+            border-radius: 4px;
+            font-family: 'Lato', sans-serif;
+            font-size: 0.85rem;
+            outline: none;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%238A7458' d='M5 7L1 3h8z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            transition: border-color 0.2s;
+        }
+        select:focus { border-color: var(--green); }
+        select option { background: var(--b0); }
+
+        .btn-search {
+            width: 100%;
+            padding: 0.85rem;
+            background: var(--green);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-family: 'Lato', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+        }
+        .btn-search:hover { background: var(--green2); }
+        .btn-search:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ── DASHBOARD ── */
+        #dashboard { display: none; }
+        #dashboard.visible { display: block; }
+        .dash-wrap { max-width: 680px; margin: 0 auto; padding: 2rem 1.5rem 5rem; position: relative; z-index: 1; }
+
+        /* ── LOCATION STRIP ── */
+        .loc-strip {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 1.2rem 0 1.2rem;
+            border-bottom: 1.5px solid var(--b2);
+            margin-bottom: 1.8rem;
+        }
+        .loc-icon { width: 42px; height: 42px; flex-shrink: 0; }
+        .loc-name {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1.1rem, 3vw, 1.5rem);
+            color: var(--ink);
+            line-height: 1.1;
+        }
+        .loc-sub {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.7rem;
+            color: var(--ink3);
+            margin-top: 0.2rem;
+        }
+        .loc-badge {
+            margin-left: auto;
+            background: var(--b2);
+            color: var(--ink2);
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.65rem;
+            padding: 0.25rem 0.65rem;
+            border-radius: 2px;
+            border: 1px solid var(--b3);
+            white-space: nowrap;
+        }
+
+        /* ── SECTION HEADER ── */
+        .sec-head {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.85rem;
+        }
+        .sec-icon { width: 22px; height: 22px; flex-shrink: 0; }
+        .sec-label {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.62rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--ink3);
+        }
+        .sec-line { flex: 1; height: 1px; background: var(--b2); }
+
+        /* ── REC PRINCIPAL ── */
+        .rec-box {
+            background: var(--b1);
+            border: 1.5px solid var(--b3);
+            border-left: 4px solid var(--green);
+            border-radius: 4px;
+            padding: 1.1rem 1.3rem;
+            margin-bottom: 1.8rem;
+            display: flex;
+            gap: 0.9rem;
+            align-items: flex-start;
+        }
+        .rec-img { width: 48px; height: 48px; flex-shrink: 0; }
+        .rec-tag {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--green);
+            margin-bottom: 0.3rem;
+        }
+        .rec-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 0.98rem;
+            color: var(--ink);
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        /* ── CULTIVOS ── */
+        .cultivos-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.6rem;
+            margin-bottom: 1.8rem;
+        }
+        .cultivo-card {
+            background: var(--b0);
+            border: 1.5px solid var(--b2);
+            border-radius: 4px;
+            padding: 0.75rem 0.65rem;
+            text-align: center;
+        }
+        .cultivo-img { width: 36px; height: 36px; margin: 0 auto 0.4rem; display: block; }
+        .cultivo-num {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.6rem;
+            color: var(--ink3);
+            margin-bottom: 0.2rem;
+        }
+        .cultivo-name { font-size: 0.78rem; font-weight: 700; color: var(--ink); line-height: 1.2; }
+        .cultivo-risk { font-size: 0.63rem; color: var(--ink3); margin-top: 0.25rem; font-style: italic; }
+
+        /* ── METRICS ── */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.6rem;
+            margin-bottom: 1.8rem;
+        }
+        .metric-card {
+            background: var(--b1);
+            border: 1.5px solid var(--b2);
+            border-radius: 4px;
+            padding: 0.9rem 0.7rem;
+            text-align: center;
+        }
+        .metric-img { width: 28px; height: 28px; margin: 0 auto 0.4rem; display: block; }
+        .metric-label {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.58rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--ink3);
+            margin-bottom: 0.3rem;
+        }
+        .metric-val {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.65rem;
+            color: var(--ink);
+            line-height: 1;
+        }
+
+        /* ── TEMPORADA ── */
+        .temporada {
+            background: var(--b1);
+            border: 1.5px solid var(--b2);
+            border-radius: 4px;
+            padding: 0.85rem 1.1rem;
+            margin-bottom: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+        .temp-img { width: 32px; height: 32px; flex-shrink: 0; }
+        .temp-label {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.58rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--ink3);
+            margin-bottom: 0.15rem;
+        }
+        .temp-text { font-size: 0.83rem; font-weight: 700; color: var(--ink2); }
+
+        /* ── CLIMA HIST ── */
+        .hist-strip {
+            background: var(--ink);
+            border-radius: 4px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 1.8rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.4rem;
+        }
+        .hist-item { display: flex; flex-direction: column; gap: 0.15rem; }
+        .hist-key {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.58rem;
+            color: var(--b3);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .hist-val {
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            color: var(--b0);
+        }
+
+        /* ── RIESGO ── */
+        .riesgo-box {
+            border-radius: 4px;
+            padding: 0.9rem 1.1rem;
+            margin-bottom: 1.8rem;
+            border: 1.5px solid;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.8rem;
+        }
+        .riesgo-box.bajo   { background: #F2F7F0; border-color: #A8C8A4; }
+        .riesgo-box.alto   { background: #F9F0EE; border-color: #C8A8A4; }
+        .riesgo-box.helada { background: #F2F0F7; border-color: #A8A4C8; }
+        .riesgo-box.lluvia { background: #F7F4EE; border-color: #C8B88A; }
+        .riesgo-img { width: 36px; height: 36px; flex-shrink: 0; }
+        .riesgo-nivel {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 0.2rem;
+        }
+        .riesgo-box.bajo   .riesgo-nivel { color: var(--green); }
+        .riesgo-box.alto   .riesgo-nivel { color: var(--rust); }
+        .riesgo-box.helada .riesgo-nivel { color: var(--purple); }
+        .riesgo-box.lluvia .riesgo-nivel { color: var(--gold); }
+        .riesgo-msg { font-size: 0.82rem; color: var(--ink2); line-height: 1.4; }
+
+        /* ── PLAGAS ── */
+        .plagas-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.8rem; }
+        .plaga-card {
+            border-radius: 4px;
+            padding: 0.9rem 1rem;
+            border: 1.5px solid;
+            display: grid;
+            grid-template-columns: 40px 1fr auto;
+            gap: 0.5rem 0.8rem;
+            align-items: start;
+        }
+        .plaga-card.ALTO     { background: #F9F0EE; border-color: #C8A8A4; }
+        .plaga-card.MODERADO { background: #F7F4EE; border-color: #C8B88A; }
+        .plaga-card.BAJO     { background: #F2F7F0; border-color: #A8C8A4; }
+        .plaga-card.CRÍTICO  { background: #F2F0F7; border-color: #A8A4C8; }
+        .plaga-img { width: 36px; height: 36px; grid-row: 1 / 3; align-self: center; }
+        .plaga-nombre { font-size: 0.85rem; font-weight: 700; color: var(--ink); }
+        .plaga-cond {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.67rem;
+            color: var(--ink3);
+            margin-top: 0.12rem;
+        }
+        .plaga-msg { font-size: 0.76rem; color: var(--ink2); grid-column: 2; line-height: 1.4; }
+        .plaga-badge {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.55rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 0.15rem 0.45rem;
+            border-radius: 2px;
+            white-space: nowrap;
+        }
+        .plaga-card.ALTO     .plaga-badge { background: var(--rust);   color: #fff; }
+        .plaga-card.MODERADO .plaga-badge { background: var(--gold);   color: #fff; }
+        .plaga-card.BAJO     .plaga-badge { background: var(--green);  color: #fff; }
+        .plaga-card.CRÍTICO  .plaga-badge { background: var(--purple); color: #fff; }
+
+        /* ── FOOTER ── */
+        .dash-footer {
+            border-top: 1.5px solid var(--b2);
+            padding-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        .dash-footer p {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.62rem;
+            color: var(--ink3);
+        }
+
+        
+        .btn-gps {
+            width: 100%;
+            padding: 0.75rem;
+            background: transparent;
+            color: var(--dew, #B8E0BB);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            font-family: 'Lato', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.6rem;
+            color: #B8E0BB;
+        }
+        .btn-gps:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.35); }
+        .btn-gps:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        #mapa-container {
+            display: none;
+            margin-bottom: 1.8rem;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1.5px solid #C9B99A;
+        }
+        #mapa-container.visible { display: block; }
+        #mapa { height: 220px; }
+        .mapa-label {
+            background: #F2EBD9;
+            border-top: 1px solid #E5D9C0;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 10px;
+            color: #8A7458;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .gps-status {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #B8E0BB;
+            margin-bottom: 0.6rem;
+            display: none;
+            font-family: monospace;
+            text-align: center;
+        }
+        .gps-status.visible { display: block; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 0.8s linear infinite; display: inline-block; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-up { animation: fadeUp 0.35s ease forwards; }
+
+        @media (max-width: 480px) {
+            .selector-row { grid-template-columns: 1fr; }
+            .metrics-row, .cultivos-row { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+    <svg class="header-illustration" viewBox="0 0 36 36" fill="none">
+        <ellipse cx="18" cy="22" rx="7" ry="10" fill="#4A6741" opacity="0.85"/>
+        <path d="M18 32 Q14 24 10 18 Q14 20 18 32Z" fill="#6B8F62"/>
+        <path d="M18 32 Q22 24 26 18 Q22 20 18 32Z" fill="#6B8F62"/>
+        <path d="M18 16 Q16 10 20 6 Q22 12 18 16Z" fill="#4A6741"/>
+        <circle cx="18" cy="32" r="2" fill="#8B6040"/>
+    </svg>
+    <div class="site-logo">AgroClima <em>Perú</em></div>
+    <div class="site-tagline">ENA 2024 · v3.2</div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+    <svg class="hero-deco" viewBox="0 0 200 200" fill="none">
+        <circle cx="100" cy="100" r="90" stroke="#4A6741" stroke-width="1"/>
+        <path d="M100 20 Q130 60 100 100 Q70 60 100 20Z" fill="#4A6741"/>
+        <path d="M100 180 Q70 140 100 100 Q130 140 100 180Z" fill="#4A6741"/>
+        <path d="M20 100 Q60 70 100 100 Q60 130 20 100Z" fill="#4A6741"/>
+        <path d="M180 100 Q140 130 100 100 Q140 70 180 100Z" fill="#4A6741"/>
+    </svg>
+
+    <div class="hero-label">Sistema predictivo agroclimático</div>
+    <h1 class="hero-title">Análisis del clima<br>para <span>tu distrito</span></h1>
+
+    <div class="selector-row">
+        <div class="selector-group">
+            <span class="selector-label">
+                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 1L9 9H1Z" fill="#8A7458"/></svg>
+                Región
+            </span>
+            <select id="sel-region" onchange="updateProvincias()"></select>
+        </div>
+        <div class="selector-group">
+            <span class="selector-label">
+                <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" stroke="#8A7458" stroke-width="1.5" fill="none"/></svg>
+                Provincia
+            </span>
+            <select id="sel-prov" onchange="updateDistritos()"></select>
+        </div>
+        <div class="selector-group">
+            <span class="selector-label">
+                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" stroke="#8A7458" stroke-width="1.5" fill="none"/></svg>
+                Distrito
+            </span>
+            <select id="sel-dist"></select>
+        </div>
+    </div>
+    
+    <button class="btn-gps" id="btn-gps" onclick="detectarUbicacion()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M8 1V3M8 13V15M1 8H3M13 8H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Usar mi ubicación GPS
+    </button>
+    <button class="btn-search" id="btn-search" onclick="consultar()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="white" stroke-width="1.5"/><path d="M11 11L14 14" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Ejecutar análisis agroclimático
+    </button>
+</section>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+<div class="dash-wrap">
+
+    <!-- LOCATION -->
+    <div class="loc-strip fade-up">
+        <svg class="loc-icon" viewBox="0 0 42 42" fill="none">
+            <path d="M21 4C14.4 4 9 9.4 9 16C9 24 21 38 21 38C21 38 33 24 33 16C33 9.4 27.6 4 21 4Z" fill="#4A6741" opacity="0.85"/>
+            <circle cx="21" cy="16" r="5" fill="#FAF6EE"/>
+        </svg>
+        <div>
+            <div class="loc-name" id="res-header-title">---</div>
+            <div class="loc-sub" id="res-coords">ENA 2024</div>
+        </div>
+        <div class="loc-badge">📊 <span id="res-count">0</span> registros</div>
+    </div>
+
+
+    <!-- MAPA GPS -->
+    <div id="mapa-container">
+        <div id="mapa"></div>
+        <div class="mapa-label">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="2.5" stroke="#4A6741" stroke-width="1.2"/><path d="M6 1C3.8 1 2 2.8 2 5C2 7.5 6 11 6 11C6 11 10 7.5 10 5C10 2.8 8.2 1 6 1Z" stroke="#4A6741" stroke-width="1.2" fill="none"/></svg>
+            <span id="mapa-label-text">Ubicación detectada por GPS</span>
+        </div>
+    </div>
+
+    <!-- 1. RECOMENDACIÓN -->
+    <div class="sec-head">
+        <svg class="sec-icon" viewBox="0 0 22 22" fill="none">
+            <path d="M11 2L13.5 8.5H20L14.5 12.5L16.5 19L11 15L5.5 19L7.5 12.5L2 8.5H8.5Z" fill="#B8862A"/>
+        </svg>
+        <span class="sec-label">Recomendación principal</span>
+        <div class="sec-line"></div>
+    </div>
+    <div class="rec-box fade-up">
+        <svg class="rec-img" viewBox="0 0 48 48" fill="none">
+            <ellipse cx="24" cy="30" rx="10" ry="14" fill="#6B8F62" opacity="0.7"/>
+            <path d="M24 44 Q18 32 12 24 Q18 27 24 44Z" fill="#4A6741"/>
+            <path d="M24 44 Q30 32 36 24 Q30 27 24 44Z" fill="#4A6741"/>
+            <path d="M24 20 Q21 12 26 7 Q29 14 24 20Z" fill="#4A6741"/>
+            <rect x="22" y="40" width="4" height="6" rx="2" fill="#8B6040"/>
+        </svg>
+        <div>
+            <div class="rec-tag">🌾 Cultivo prioritario</div>
+            <div class="rec-text" id="res-main-rec">---</div>
+        </div>
+    </div>
+
+    <!-- 2. TOP CULTIVOS -->
+    <div class="sec-head">
+        <svg class="sec-icon" viewBox="0 0 22 22" fill="none">
+            <rect x="3" y="14" width="4" height="6" rx="1" fill="#4A6741"/>
+            <rect x="9" y="9" width="4" height="11" rx="1" fill="#4A6741"/>
+            <rect x="15" y="5" width="4" height="15" rx="1" fill="#4A6741"/>
+        </svg>
+        <span class="sec-label">Top cultivos del distrito</span>
+        <div class="sec-line"></div>
+    </div>
+    <div class="cultivos-row fade-up" id="cultivos-grid"></div>
+
+    <!-- 3. CLIMA ACTUAL -->
+    <div class="sec-head">
+        <svg class="sec-icon" viewBox="0 0 22 22" fill="none">
+            <circle cx="11" cy="11" r="5" fill="#B8862A"/>
+            <path d="M11 2V4M11 18V20M2 11H4M18 11H20M4.6 4.6L6 6M16 16L17.4 17.4M4.6 17.4L6 16M16 6L17.4 4.6" stroke="#B8862A" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="sec-label">Clima actual · Open-Meteo</span>
+        <div class="sec-line"></div>
+    </div>
+    <div class="metrics-row fade-up">
+        <div class="metric-card">
+            <svg class="metric-img" viewBox="0 0 28 28" fill="none">
+                <rect x="11" y="4" width="6" height="14" rx="3" stroke="#8B4A2A" stroke-width="1.5" fill="none"/>
+                <circle cx="14" cy="21" r="4" fill="#8B4A2A" opacity="0.7"/>
+                <line x1="14" y1="18" x2="14" y2="10" stroke="#8B4A2A" stroke-width="2"/>
+            </svg>
+            <div class="metric-label">Temperatura</div>
+            <div class="metric-val" id="res-temp">--°</div>
+        </div>
+        <div class="metric-card">
+            <svg class="metric-img" viewBox="0 0 28 28" fill="none">
+                <path d="M14 6 Q20 14 20 18A6 6 0 0 1 8 18Q8 14 14 6Z" fill="#4A6741" opacity="0.7"/>
+                <path d="M10 20 Q14 16 18 20" stroke="#4A6741" stroke-width="1" fill="none"/>
+            </svg>
+            <div class="metric-label">Humedad</div>
+            <div class="metric-val" id="res-hum">--%</div>
+        </div>
+        <div class="metric-card">
+            <svg class="metric-img" viewBox="0 0 28 28" fill="none">
+                <path d="M6 14 Q10 8 14 10 Q18 8 22 14 Q18 20 14 18 Q10 20 6 14Z" fill="#4A6741" opacity="0.5"/>
+                <path d="M9 18 L9 24M14 18 L14 24M19 18 L19 24" stroke="#4A6741" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <div class="metric-label">15D Min/Máx</div>
+            <div class="metric-val" style="font-size:1rem;padding-top:0.3rem" id="res-15d">--</div>
+        </div>
+    </div>
+
+    <!-- 4. TEMPORADA -->
+    <div class="temporada fade-up">
+        <svg class="temp-img" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="12" stroke="#4A7FC1" stroke-width="1.5" fill="none"/>
+            <path d="M8 20 Q12 12 16 16 Q20 20 24 12" stroke="#4A7FC1" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        </svg>
+        <div>
+            <div class="temp-label">Temporada</div>
+            <div class="temp-text">Fin de lluvias — inicio de cosechas, clima favorable</div>
+        </div>
+    </div>
+
+    <!-- 5. CLIMA HIST -->
+    <div class="sec-head">
+        <svg class="sec-icon" viewBox="0 0 22 22" fill="none">
+            <rect x="3" y="3" width="16" height="16" rx="2" stroke="#8A7458" stroke-width="1.5" fill="none"/>
+            <path d="M7 8H15M7 11H15M7 14H12" stroke="#8A7458" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <span class="sec-label">Clima histórico · ENA 2024</span>
+        <div class="sec-line"></div>
+    </div>
+    <div class="hist-strip fade-up">
+        <div class="hist-item"><span class="hist-key">🌡 Media</span><span class="hist-val"><span id="h-med">--</span>°C</span></div>
+        <div class="hist-item"><span class="hist-key">⬇ Mínima</span><span class="hist-val"><span id="h-min">--</span>°C</span></div>
+        <div class="hist-item"><span class="hist-key">⬆ Máxima</span><span class="hist-val"><span id="h-max">--</span>°C</span></div>
+        <div class="hist-item"><span class="hist-key">🌧 Precip.</span><span class="hist-val"><span id="h-pre">--</span> mm</span></div>
+    </div>
+
+    <!-- 6. RIESGO -->
+    <div class="sec-head">
+        <svg class="sec-icon" viewBox="0 0 22 22" fill="none">
+            <path d="M11 3L20 19H2Z" stroke="#8A7458" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+            <path d="M11 10V14M11 16.5V17" stroke="#8A7458" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="sec-label">Riesgo climático</span>
+        <div class="sec-line"></div>
+    </div>
+    <div id="box-riesgo" class="riesgo-box bajo fade-up">
+        <svg class="riesgo-img" viewBox="0 0 36 36" fill="none">
+            <circle cx="18" cy="18" r="14" fill="#A8C8A4" opacity="0.4"/>
+            <path d="M11 18L16 23L25 13" stroke="#3A7D44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div>
+            <div class="riesgo-nivel" id="lbl-riesgo">RIESGO BAJO</div>
+            <div class="riesgo-msg" id="msg-riesgo">Condiciones climáticas normales para la región y temporada.</div>
+        </div>
+    </div>
+
+    <!-- 7. PLAGAS -->
+    <div class="sec-head">
+        <svg class="sec-icon" viewBox="0 0 22 22" fill="none">
+            <ellipse cx="11" cy="13" rx="5" ry="7" fill="#8B4A2A" opacity="0.7"/>
+            <path d="M11 6 Q8 3 5 4M11 6 Q14 3 17 4" stroke="#8B4A2A" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M6 10 Q3 9 2 11M16 10 Q19 9 20 11" stroke="#8B4A2A" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M6 15 Q3 15 2 17M16 15 Q19 15 20 17" stroke="#8B4A2A" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <span class="sec-label">Detección de plagas por clima</span>
+        <div class="sec-line"></div>
+    </div>
+    <div class="plagas-list fade-up" id="lista-fitosanitario"></div>
+
+    <div class="dash-footer">
+        <p>📡 Open-Meteo API · Tiempo real</p>
+        <p>AgroClima Perú · ENA 2024</p>
+    </div>
+
+</div>
+</div>
+
+<script>
+    const API_BASE = 'http://127.0.0.1:8000';
+    let dataTree = {};
+
+    // Imágenes reales de Wikimedia Commons (libres de uso)
+    const CULTIVO_IMGS = {
+        "ARROZ":              "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Paddy_field_at_Mahawilachchiya.jpg/120px-Paddy_field_at_Mahawilachchiya.jpg",
+        "ARROZ CASCARA":      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Paddy_field_at_Mahawilachchiya.jpg/120px-Paddy_field_at_Mahawilachchiya.jpg",
+        "MAIZ":               "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Corn_close_up.JPG/120px-Corn_close_up.JPG",
+        "MAIZ AMARILLO":      "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Corn_close_up.JPG/120px-Corn_close_up.JPG",
+        "MAIZ AMARILLO DURO": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Corn_close_up.JPG/120px-Corn_close_up.JPG",
+        "MAIZ AMILACEO":      "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Corn_close_up.JPG/120px-Corn_close_up.JPG",
+        "PAPA":               "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Patates.jpg/120px-Patates.jpg",
+        "YUCA":               "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Manihot_esculenta_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-090.jpg/90px-Manihot_esculenta_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-090.jpg",
+        "PLATANO":            "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Banana-Conjunto.jpg/120px-Banana-Conjunto.jpg",
+        "PASTO":              "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Meadow_of_Orcia.jpg/120px-Meadow_of_Orcia.jpg",
+        "PASTO BRAQUIARIA":   "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Meadow_of_Orcia.jpg/120px-Meadow_of_Orcia.jpg",
+        "PASTO ELEFANTE":     "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Meadow_of_Orcia.jpg/120px-Meadow_of_Orcia.jpg",
+        "CAMOTE":             "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Ipomoea_batatas_006.JPG/120px-Ipomoea_batatas_006.JPG",
+        "CAFE":               "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Roasted_coffee_beans.jpg/120px-Roasted_coffee_beans.jpg",
+        "CACAO":              "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/Cocoa_Pods_on_tree.jpg/120px-Cocoa_Pods_on_tree.jpg",
+        "QUINUA":             "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Chenopodium_quinoa0.jpg/120px-Chenopodium_quinoa0.jpg",
+        "TRIGO":              "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Wheat_closeup.JPG/120px-Wheat_closeup.JPG",
+        "HABA":               "https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Fave.jpg/120px-Fave.jpg",
+        "CEBADA":             "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Barley_field.jpg/120px-Barley_field.jpg",
+        "FRIJOL":             "https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Fave.jpg/120px-Fave.jpg",
+        "PALTO":              "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Avocado_on_white_background.jpg/120px-Avocado_on_white_background.jpg",
+        "AGUAJE":             "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Paddy_field_at_Mahawilachchiya.jpg/120px-Paddy_field_at_Mahawilachchiya.jpg",
+        "default":            "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Tractor_with_trailer_in_the_field.jpg/120px-Tractor_with_trailer_in_the_field.jpg"
+    };
+
+    function getCultivoIcon(nombre) {
+        const n = nombre.toUpperCase();
+        for (const key of Object.keys(CULTIVO_IMGS)) {
+            if (key !== 'default' && n.includes(key)) {
+                return `<img src="${CULTIVO_IMGS[key]}" 
+                    style="width:52px;height:52px;object-fit:cover;border-radius:50%;margin:0 auto 6px;display:block;border:2px solid #E5D9C0;"
+                    onerror="this.style.display='none'"
+                    alt="${nombre}">`;
+            }
+        }
+        return `<img src="${CULTIVO_IMGS['default']}" 
+            style="width:52px;height:52px;object-fit:cover;border-radius:50%;margin:0 auto 6px;display:block;border:2px solid #E5D9C0;"
+            onerror="this.style.display='none'"
+            alt="${nombre}">`;
+    }
+
+
+
+    function plagaSVG(nivel) {
+        const colors = { ALTO: '#C8A8A4', MODERADO: '#C8B88A', BAJO: '#A8C8A4', CRÍTICO: '#A8A4C8' };
+        const fills  = { ALTO: '#8B4A2A', MODERADO: '#B8862A', BAJO: '#4A6741', CRÍTICO: '#5A3A7A' };
+        const c = colors[nivel] || colors.BAJO;
+        const f = fills[nivel]  || fills.BAJO;
+        return `<svg class="plaga-img" viewBox="0 0 36 36" fill="none">
+            <ellipse cx="18" cy="20" rx="6" ry="9" fill="${f}" opacity="0.75"/>
+            <path d="M18 11 Q15 7 12 8M18 11 Q21 7 24 8" stroke="${f}" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M12 16 Q8 15 7 17M24 16 Q28 15 29 17" stroke="${f}" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M12 22 Q8 22 7 24M24 22 Q28 22 29 24" stroke="${f}" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>`;
+    }
+
+    window.onload = async () => {
+        try {
+            const r = await fetch(`${API_BASE}/ubicaciones`);
+            dataTree = await r.json();
+            const sel = document.getElementById('sel-region');
+            Object.keys(dataTree).sort().forEach(reg => sel.add(new Option(reg, reg)));
+            updateProvincias();
+        } catch (e) {
+            console.error(e);
+            alert("Error: El servidor backend (main.py) no responde.");
+        }
+    };
+
+    function updateProvincias() {
+        const reg = document.getElementById('sel-region').value;
+        const sel = document.getElementById('sel-prov');
+        sel.innerHTML = "";
+        Object.keys(dataTree[reg] || {}).sort().forEach(p => sel.add(new Option(p, p)));
+        updateDistritos();
+    }
+
+    function updateDistritos() {
+        const reg  = document.getElementById('sel-region').value;
+        const prov = document.getElementById('sel-prov').value;
+        const sel  = document.getElementById('sel-dist');
+        sel.innerHTML = "";
+        (dataTree[reg]?.[prov] || []).sort().forEach(d => sel.add(new Option(d, d)));
+    }
+
+    function renderFitosanitario(alertas) {
+        document.getElementById('lista-fitosanitario').innerHTML = alertas.map(a => `
+            <div class="plaga-card ${a.nivel}">
+                ${plagaSVG(a.nivel)}
+                <div>
+                    <div class="plaga-nombre">${a.icono} ${a.tipo}</div>
+                    <div class="plaga-cond">${a.condicion}</div>
+                </div>
+                <div class="plaga-badge">${a.nivel}</div>
+                <div class="plaga-msg">${a.mensaje}</div>
+            </div>`).join('');
+    }
+
+    function getRiesgo(riesgo) {
+        if (riesgo === 'HELADA')        return { cls:'helada', nivel:'HELADA DETECTADA',  msg:'Temperaturas críticas. Riesgo de daño celular en cultivos.',
+            svg:`<svg class="riesgo-img" viewBox="0 0 36 36" fill="none"><path d="M18 4V32M4 18H32M8 8L28 28M28 8L8 28" stroke="#5A3A7A" stroke-width="2" stroke-linecap="round"/><circle cx="18" cy="18" r="4" fill="#5A3A7A" opacity="0.5"/></svg>` };
+        if (riesgo === 'CALOR EXTREMO') return { cls:'alto',   nivel:'CALOR EXTREMO',     msg:'Temperatura peligrosamente alta para los cultivos de la zona.',
+            svg:`<svg class="riesgo-img" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="8" fill="#8B4A2A" opacity="0.7"/><path d="M18 4V7M18 29V32M4 18H7M29 18H32M8 8L10 10M26 26L28 28M8 28L10 26M26 10L28 8" stroke="#8B4A2A" stroke-width="1.5" stroke-linecap="round"/></svg>` };
+        if (riesgo === 'EXCESO LLUVIA') return { cls:'lluvia', nivel:'EXCESO DE LLUVIA',  msg:'Precipitaciones elevadas. Riesgo de encharcamiento y hongos.',
+            svg:`<svg class="riesgo-img" viewBox="0 0 36 36" fill="none"><path d="M8 16Q8 8 18 8Q28 8 28 16Q32 16 32 22A6 6 0 0 1 26 28H10A6 6 0 0 1 4 22Q4 16 8 16Z" fill="#4A6741" opacity="0.5"/><path d="M13 28L11 34M18 28L16 34M23 28L21 34" stroke="#4A6741" stroke-width="1.5" stroke-linecap="round"/></svg>` };
+        return { cls:'bajo', nivel:'RIESGO BAJO', msg:'Condiciones climáticas normales para la región y temporada.',
+            svg:`<svg class="riesgo-img" viewBox="0 0 36 36" fill="none"><circle cx="18" cy="18" r="14" fill="#A8C8A4" opacity="0.4"/><path d="M11 18L16 23L25 13" stroke="#3A7D44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` };
+    }
+
+    async function consultar() {
+        const btn = document.getElementById('btn-search');
+        btn.innerHTML = '<span class="spin">⟳</span> Procesando...';
+        btn.disabled = true;
+
+        const payload = {
+            region:    document.getElementById('sel-region').value,
+            provincia: document.getElementById('sel-prov').value,
+            distrito:  document.getElementById('sel-dist').value
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/consulta`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            const dash = document.getElementById('dashboard');
+            dash.classList.add('visible');
+
+            document.getElementById('res-header-title').innerText = `${data.distrito} · ${data.provincia} · ${data.region}`;
+            document.getElementById('res-count').innerText   = data.registros_ena;
+            document.getElementById('res-coords').innerText  = `Lat ${data.coordenadas?.lat ?? '--'} · Lon ${data.coordenadas?.lon ?? '--'}`;
+            document.getElementById('res-main-rec').innerText = data.recomendacion_principal;
+            document.getElementById('res-temp').innerText   = data.clima.temp_actual + '°';
+            document.getElementById('res-hum').innerText    = data.clima.humedad_actual + '%';
+            document.getElementById('res-15d').innerText    = data.clima.rango_15d;
+            document.getElementById('h-med').innerText      = data.clima.temp_media_prom;
+            document.getElementById('h-min').innerText      = data.clima.temp_min_prom;
+            document.getElementById('h-max').innerText      = data.clima.temp_max_prom;
+            document.getElementById('h-pre').innerText      = data.clima.precip_prom;
+
+            document.getElementById('cultivos-grid').innerHTML = data.agricultura.top_cultivos.map((c, i) => `
+                <div class="cultivo-card">
+                    <div class="cultivo-num">#${i+1}</div>
+                    <div class="cultivo-name">${c}</div>
+                    <div class="cultivo-risk">${data.riesgo_climatico}</div>
+                </div>`).join('');
+
+            const r = getRiesgo(data.riesgo_climatico);
+            const box = document.getElementById('box-riesgo');
+            box.className = `riesgo-box ${r.cls} fade-up`;
+            box.innerHTML = `${r.svg}<div><div class="riesgo-nivel">${r.nivel}</div><div class="riesgo-msg">${r.msg}</div></div>`;
+
+            if (data.alertas_fitosanitarias) renderFitosanitario(data.alertas_fitosanitarias);
+
+            // Actualizar mapa con las coordenadas del distrito consultado
+            if (data.coordenadas && data.coordenadas.lat && data.coordenadas.lon) {
+                iniciarMapa(
+                    data.coordenadas.lat,
+                    data.coordenadas.lon,
+                    `${data.distrito} · ${data.provincia} · ${data.region}`
+                );
+            }
+
+            dash.scrollIntoView({ behavior: 'smooth' });
+
+        } catch (e) {
+            console.error(e);
+            alert("Error al procesar la consulta.");
+        } finally {
+            btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="white" stroke-width="1.5"/><path d="M11 11L14 14" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg> Ejecutar análisis agroclimático`;
+            btn.disabled = false;
+        }
+    }
+
+    // ── MAPA LEAFLET ──
+    let mapa = null;
+    let marcador = null;
+
+    function iniciarMapa(lat, lon, label) {
+        const container = document.getElementById('mapa-container');
+        container.classList.add('visible');
+        document.getElementById('mapa-label-text').innerText = label;
+
+        if (!mapa) {
+            mapa = L.map('mapa', { zoomControl: true, attributionControl: false }).setView([lat, lon], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 18
+            }).addTo(mapa);
+
+            const icono = L.divIcon({
+                html: `<div style="background:#4A6741;width:14px;height:14px;border-radius:50%;border:2.5px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>`,
+                className: '',
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+            });
+
+            marcador = L.marker([lat, lon], { icon: icono })
+                .addTo(mapa)
+                .bindPopup(`<b style="font-family:Georgia,serif;font-size:13px;">${label}</b>`, { offset: [0, -5] })
+                .openPopup();
+        } else {
+            mapa.setView([lat, lon], 12);
+            marcador.setLatLng([lat, lon]);
+            marcador.setPopupContent(`<b style="font-family:Georgia,serif;font-size:13px;">${label}</b>`).openPopup();
+        }
+
+        setTimeout(() => mapa.invalidateSize(), 300);
+    }
+
+    // ── DETECCIÓN GPS ──
+    async function detectarUbicacion() {
+        const btn = document.getElementById('btn-gps');
+        const status = document.getElementById('gps-status') || (() => {
+            const el = document.createElement('div');
+            el.id = 'gps-status';
+            el.className = 'gps-status';
+            btn.parentNode.insertBefore(el, btn);
+            return el;
+        })();
+
+        if (!navigator.geolocation) {
+            alert('Tu navegador no soporta geolocalización.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spin">⟳</span> Detectando ubicación...';
+        status.className = 'gps-status visible';
+        status.innerText = '📡 Obteniendo coordenadas GPS...';
+
+        navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                status.innerText = `📍 Coordenadas: ${lat.toFixed(4)}, ${lon.toFixed(4)} — Buscando distrito...`;
+
+                try {
+                    const r = await fetch(`${API_BASE}/ubicacion-gps`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ lat, lon })
+                    });
+                    const data = await r.json();
+
+                    // Llenar selectores
+                    const selR = document.getElementById('sel-region');
+                    const selP = document.getElementById('sel-prov');
+                    const selD = document.getElementById('sel-dist');
+
+                    [...selR.options].forEach((o, i) => { if (o.value === data.region) selR.selectedIndex = i; });
+                    updateProvincias();
+                    await new Promise(r => setTimeout(r, 100));
+                    [...selP.options].forEach((o, i) => { if (o.value === data.provincia) selP.selectedIndex = i; });
+                    updateDistritos();
+                    await new Promise(r => setTimeout(r, 100));
+                    [...selD.options].forEach((o, i) => { if (o.value === data.distrito) selD.selectedIndex = i; });
+
+                    status.innerText = `✅ Distrito detectado: ${data.distrito} (${data.distancia_km} km del punto GPS)`;
+
+                    // Mostrar mapa con tu ubicación real
+                    iniciarMapa(lat, lon, `${data.distrito} · ${data.provincia} · ${data.region}`);
+
+                } catch (e) {
+                    status.innerText = '❌ No se pudo conectar al servidor. ¿Está corriendo main.py?';
+                }
+
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M8 1V3M8 13V15M1 8H3M13 8H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Usar mi ubicación GPS`;
+            },
+            (err) => {
+                status.innerText = '❌ No se pudo obtener la ubicación. Verifica los permisos.';
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M8 1V3M8 13V15M1 8H3M13 8H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Usar mi ubicación GPS`;
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+</body>
+</html>
